@@ -1,0 +1,49 @@
+using MongoDB.Driver;
+using MongoDB.Driver.Core.Authentication.Oidc;
+using MongoDB.Bson;
+using Azure.Identity;
+using Azure.Core;
+
+// Retrieve token
+//var credential = new ManagedIdentityCredential(clientId:"60e2bd40-4d26-431e-9507-e55b8a3883b8");
+var credential = new ManagedIdentityCredential();
+var tokenRequestContext = new TokenRequestContext(new[] {"api://xxx/.default"});
+var token = await credential.GetTokenAsync(tokenRequestContext);
+
+// Write token to file
+string tokenFile = Path.Combine(Path.GetTempPath(), "access-token.dat");
+File.WriteAllText(tokenFile, token.Token);
+
+var mongoClientSettings = MongoClientSettings.FromConnectionString("mongodb+srv://cluster0-pl-0.eslej.mongodb.net");
+mongoClientSettings.Credential = MongoCredential.CreateOidcCredential(new MyCallback());
+var client = new MongoClient(mongoClientSettings);
+
+var collection = client.GetDatabase("sample_mflix").GetCollection<BsonDocument>("movies");
+
+var filter = Builders<BsonDocument>.Filter.Eq("title", "Back to the Future");
+
+var document = collection.Find(filter).First();
+
+Console.WriteLine(document);
+
+public class MyCallback : IOidcCallback
+{
+    public OidcAccessToken GetOidcAccessToken(
+        OidcCallbackParameters parameters,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = File.ReadAllText("/tmp/access-token.dat");
+        return new(accessToken, expiresIn: null);
+    }
+    public async Task<OidcAccessToken> GetOidcAccessTokenAsync(
+        OidcCallbackParameters parameters,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = await File.ReadAllTextAsync(
+            "/tmp/access-token.dat",
+            cancellationToken)
+            .ConfigureAwait(false);
+        return new(accessToken, expiresIn: null);
+    }
+}
+
