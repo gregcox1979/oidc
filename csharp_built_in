@@ -1,0 +1,16 @@
+using MongoDB.Driver;
+using MongoDB.Bson;
+
+var mongoClientSettings = MongoClientSettings.FromConnectionString("mongodb+srv://cluster0-pl-0.eslej.mongodb.net");
+
+mongoClientSettings.Credential = MongoCredential.CreateOidcCredential("azure").WithMechanismProperty("TOKEN_RESOURCE", "xxx");
+
+var client = new MongoClient(mongoClientSettings);
+
+var collection = client.GetDatabase("sample_mflix").GetCollection<BsonDocument>("movies");
+
+var filter = Builders<BsonDocument>.Filter.Eq("title", "Back to the Future");
+
+var document = collection.Find(filter).First();
+
+Console.WriteLine(document);
