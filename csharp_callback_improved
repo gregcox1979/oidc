@@ -1,0 +1,32 @@
+using MongoDB.Driver;
+using MongoDB.Driver.Core.Authentication.Oidc;
+using MongoDB.Bson;
+using Azure.Identity;
+using Azure.Core;
+
+
+var mongoClientSettings = MongoClientSettings.FromConnectionString("mongodb+srv://cluster0-pl-0.eslej.mongodb.net");
+mongoClientSettings.Credential = MongoCredential.CreateOidcCredential(new OidcCallback("api://xxx/.default"));
+var client = new MongoClient(mongoClientSettings);
+
+var collection = client.GetDatabase("sample_mflix").GetCollection<BsonDocument>("movies");
+
+var filter = Builders<BsonDocument>.Filter.Eq("title", "Back to the Future");
+
+var document = collection.Find(filter).First();
+
+Console.WriteLine(document);
+
+public class OidcCallback(string oidcApplicationId) : IOidcCallback {
+    public OidcAccessToken GetOidcAccessToken(OidcCallbackParameters parameters, CancellationToken cancellationToken) {
+        AccessToken token = new DefaultAzureCredential().GetToken(new TokenRequestContext([oidcApplicationId]), cancellationToken);
+        return new(token.Token, expiresIn: null);
+    }
+
+    public async Task<OidcAccessToken> GetOidcAccessTokenAsync(OidcCallbackParameters parameters, CancellationToken cancellationToken) {
+        AccessToken token = await new DefaultAzureCredential().GetTokenAsync(new TokenRequestContext([oidcApplicationId]), cancellationToken);
+        return new(token.Token, expiresIn: null);
+    }
+
+
+}
